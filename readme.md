@@ -1,7 +1,7 @@
 # BingoTech Mod Update Script
 
 ## Project Overview
-This is a custom update script for the BingoTech modpack in Minecraft, created by the author.
+This is a custom update script for the BingoTech modpack in Minecraft, created by the author. It can be used to update various aspects of the modpack, including mods, quests, configuration files, and even various modified codes.
 
 ## Project Features
 - **Fully AI-Coded**: The entire project was developed using AI coding tools.
