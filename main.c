@@ -63,7 +63,7 @@ int main() {
 
     // 步骤1: 以parent为wd
     if (!SetCurrentDirectory(parent)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -73,12 +73,12 @@ int main() {
     sprintf(minecraftPath, "%s\\.minecraft", parent);
     DWORD attr = GetFileAttributes(minecraftPath);
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
     if (!SetCurrentDirectory(minecraftPath)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -88,12 +88,12 @@ int main() {
     sprintf(versionsPath, "%s\\versions", minecraftPath);
     attr = GetFileAttributes(versionsPath);
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
     if (!SetCurrentDirectory(versionsPath)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -103,12 +103,12 @@ int main() {
     sprintf(bingoTechPath, "%s\\BingoTech", versionsPath);
     attr = GetFileAttributes(bingoTechPath);
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
     if (!SetCurrentDirectory(bingoTechPath)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -118,15 +118,15 @@ int main() {
     sprintf(modsPath, "%s\\mods", bingoTechPath);
     attr = GetFileAttributes(modsPath);
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
-    printf("检验完成\n");
+    printf("Inspection completed\n");
 
     // 步骤6: 回到初始wd，找resources
     if (!SetCurrentDirectory(wd)) { // wd是exe目录
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -134,7 +134,7 @@ int main() {
     sprintf(resourcesPath, "%s\\resources", wd);
     attr = GetFileAttributes(resourcesPath);
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -146,7 +146,7 @@ int main() {
     WIN32_FIND_DATA findData;
     HANDLE hFind = FindFirstFile(searchPath, &findData);
     if (hFind == INVALID_HANDLE_VALUE) {
-        printf("未完成结果\n");
+        printf("Incomplete result\n");
         system("pause");
         return 1;
     }
@@ -163,7 +163,7 @@ int main() {
                 // 存在，比较MD5
                 BYTE md5Src[16], md5Dst[16];
                 if (!GetFileMD5(srcFile, md5Src) || !GetFileMD5(dstFile, md5Dst)) {
-                    printf("未完成结果\n");
+                    printf("Incomplete result\n");
                     system("pause");
                     return 1;
                 }
@@ -173,7 +173,7 @@ int main() {
                 } else {
                     // 不同，删除dst
                     if (!DeleteFile(dstFile)) {
-                        printf("未完成结果\n");
+                        printf("Incomplete result\n");
                         system("pause");
                         return 1;
                     }
@@ -181,7 +181,7 @@ int main() {
             }
             // 拷贝
             if (!CopyFile(srcFile, dstFile, FALSE)) {
-                printf("未完成结果\n");
+                printf("Incomplete result\n");
                 system("pause");
                 return 1;
             }
@@ -189,7 +189,7 @@ int main() {
     } while (FindNextFile(hFind, &findData));
     FindClose(hFind);
 
-    printf("拷贝完成\n");
+    printf("Inspection completed\n");
     system("pause");
     return 0;
 }
