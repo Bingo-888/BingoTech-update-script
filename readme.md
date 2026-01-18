@@ -1,14 +1,16 @@
 # BingoTech Mod Update Script
 
-## Overview
-This script verifies the Minecraft BingoTech modpack directory structure and copies updated mod files from the `mods_update` folder to the `mods` folder, ensuring file integrity through MD5 checksums.
+## Project Overview
+This is a custom update script for the BingoTech modpack in Minecraft, created by the author.
 
-## Features
-- **Directory Verification**: Checks for the correct Minecraft directory structure (.minecraft/versions/BingoTech/mods).
-- **MD5 Integrity Check**: Only copies files if their MD5 checksums differ, preventing unnecessary overwrites.
-- **File Conflict Handling**: Deletes conflicting files in the destination if MD5 differs.
-- **Error Handling**: Reports failures for missing directories or file access issues.
-- **Windows Compatibility**: Designed exclusively for Windows systems.
+## Project Features
+- **Fully AI-Coded**: The entire project was developed using AI coding tools.
+- **Version Updates**: Can be used to update major versions of the modpack.
+- **Extension Packs**: Supports installing extension packs for the modpack.
+- **MIT License**: Licensed under the MIT License.
+
+## What is an Extension Pack
+The core modpack includes only the main mods, quests, and modifications. Extension packs allow players with different needs to add extra content freely and based on their interests.
 
 ## Usage
 1. Place the executable in a directory adjacent to the `mods_update` folder.
@@ -17,7 +19,7 @@ This script verifies the Minecraft BingoTech modpack directory structure and cop
 4. The script will pause at the end to allow viewing results.
 
 ## Requirements
-- Windows OS
+- Windows Operating System
 - Proper Minecraft directory structure
 - `mods_update` folder containing mod files
 
@@ -42,5 +44,4 @@ gcc mod.c -o mod.exe -lshlwapi -lcrypt32
 - Results are displayed and the program pauses before exiting.
 
 ## License
-
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
