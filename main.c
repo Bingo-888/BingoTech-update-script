@@ -16,6 +16,13 @@
 #include <openssl/md5.h>
 #endif
 
+#ifndef _WIN32
+bool dir_exists(const char* path) {
+    struct stat st;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+#endif
+
 // Function: Calculate file MD5
 BOOL GetFileMD5(const char* filename, BYTE* md5) {
 #ifdef _WIN32
@@ -77,9 +84,15 @@ BOOL GetFileMD5(const char* filename, BYTE* md5) {
 #endif
 }
 
-// Function: Copy files with MD5 check
-BOOL CopyFilesWithMD5Check(const char* sourceDir, const char* destDir) {
+// Function: Recursive copy directory with MD5 check for files
+BOOL copy_directory_recursive(const char* sourceDir, const char* destDir) {
 #ifdef _WIN32
+    // Create destination directory if it doesn't exist
+    if (!CreateDirectory(destDir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+        printf("Failed to create directory %s\n", destDir);
+        return FALSE;
+    }
+
     char pattern[MAX_PATH];
     sprintf(pattern, "%s\\*", sourceDir);
     WIN32_FIND_DATA findFileData;
@@ -91,41 +104,54 @@ BOOL CopyFilesWithMD5Check(const char* sourceDir, const char* destDir) {
 
     do {
         if (strcmp(findFileData.cFileName, ".") == 0 || strcmp(findFileData.cFileName, "..") == 0) continue;
-        char sourceFile[MAX_PATH];
-        char destFile[MAX_PATH];
-        sprintf(sourceFile, "%s\\%s", sourceDir, findFileData.cFileName);
-        sprintf(destFile, "%s\\%s", destDir, findFileData.cFileName);
+        char sourcePath[MAX_PATH];
+        char destPath[MAX_PATH];
+        sprintf(sourcePath, "%s\\%s", sourceDir, findFileData.cFileName);
+        sprintf(destPath, "%s\\%s", destDir, findFileData.cFileName);
 
-        // Check if file exists in destination
-        if (PathFileExists(destFile)) {
-            BYTE md5Source[16], md5Dest[16];
-            if (!GetFileMD5(sourceFile, md5Source) || !GetFileMD5(destFile, md5Dest)) {
-                printf("Failed to calculate MD5 for %s or %s\n", sourceFile, destFile);
+        if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // Recurse into directory
+            if (!copy_directory_recursive(sourcePath, destPath)) {
                 FindClose(hFind);
                 return FALSE;
             }
-            if (memcmp(md5Source, md5Dest, 16) == 0) {
-                continue; // Skip copying if MD5 matches
-            } else {
-                if (!DeleteFile(destFile)) {
-                    printf("Failed to delete existing file %s\n", destFile);
+        } else {
+            // File copy with MD5 check
+            if (PathFileExists(destPath)) {
+                BYTE md5Source[16], md5Dest[16];
+                if (!GetFileMD5(sourcePath, md5Source) || !GetFileMD5(destPath, md5Dest)) {
+                    printf("Failed to calculate MD5 for %s or %s\n", sourcePath, destPath);
                     FindClose(hFind);
                     return FALSE;
                 }
+                if (memcmp(md5Source, md5Dest, 16) == 0) {
+                    continue; // Skip if identical
+                } else {
+                    if (!DeleteFile(destPath)) {
+                        printf("Failed to delete existing file %s\n", destPath);
+                        FindClose(hFind);
+                        return FALSE;
+                    }
+                }
             }
-        }
-
-        // Copy file
-        if (!CopyFile(sourceFile, destFile, FALSE)) {
-            printf("Copy failed for %s, possibly file in use\n", sourceFile);
-            FindClose(hFind);
-            return FALSE;
+            // Copy file
+            if (!CopyFile(sourcePath, destPath, FALSE)) {
+                printf("Copy failed for %s, possibly file in use\n", sourcePath);
+                FindClose(hFind);
+                return FALSE;
+            }
         }
     } while (FindNextFile(hFind, &findFileData) != 0);
 
     FindClose(hFind);
     return TRUE;
 #else
+    // Create destination directory if it doesn't exist
+    if (mkdir(destDir, 0755) != 0 && errno != EEXIST) {
+        printf("Failed to create directory %s\n", destDir);
+        return FALSE;
+    }
+
     DIR* dir = opendir(sourceDir);
     if (!dir) {
         printf("Failed to open directory %s\n", sourceDir);
@@ -135,61 +161,67 @@ BOOL CopyFilesWithMD5Check(const char* sourceDir, const char* destDir) {
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-        char sourceFile[PATH_MAX];
-        char destFile[PATH_MAX];
-        sprintf(sourceFile, "%s/%s", sourceDir, entry->d_name);
-        sprintf(destFile, "%s/%s", destDir, entry->d_name);
+        char sourcePath[PATH_MAX];
+        char destPath[PATH_MAX];
+        sprintf(sourcePath, "%s/%s", sourceDir, entry->d_name);
+        sprintf(destPath, "%s/%s", destDir, entry->d_name);
 
-        // Check if it's a regular file
         struct stat st;
-        if (stat(sourceFile, &st) != 0 || !S_ISREG(st.st_mode)) continue;
-
-        // Check if file exists in destination
-        if (access(destFile, F_OK) == 0) {
-            BYTE md5Source[16], md5Dest[16];
-            if (!GetFileMD5(sourceFile, md5Source) || !GetFileMD5(destFile, md5Dest)) {
-                printf("Failed to calculate MD5 for %s or %s\n", sourceFile, destFile);
-                closedir(dir);
-                return FALSE;
-            }
-            if (memcmp(md5Source, md5Dest, 16) == 0) {
-                continue; // Skip copying if MD5 matches
-            } else {
-                if (remove(destFile) != 0) {
-                    printf("Failed to delete existing file %s\n", destFile);
+        if (stat(sourcePath, &st) == 0) {
+            if (S_ISDIR(st.st_mode)) {
+                // Recurse into directory
+                if (!copy_directory_recursive(sourcePath, destPath)) {
                     closedir(dir);
                     return FALSE;
                 }
-            }
-        }
-
-        // Copy file manually
-        FILE* src = fopen(sourceFile, "rb");
-        if (!src) {
-            printf("Failed to open source file %s\n", sourceFile);
-            closedir(dir);
-            return FALSE;
-        }
-        FILE* dst = fopen(destFile, "wb");
-        if (!dst) {
-            printf("Failed to open destination file %s, possibly in use\n", destFile);
-            fclose(src);
-            closedir(dir);
-            return FALSE;
-        }
-        char buffer[1024];
-        size_t bytes;
-        while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0) {
-            if (fwrite(buffer, 1, bytes, dst) != bytes) {
-                printf("Failed to write to %s\n", destFile);
+            } else if (S_ISREG(st.st_mode)) {
+                // File copy with MD5 check
+                if (access(destPath, F_OK) == 0) {
+                    BYTE md5Source[16], md5Dest[16];
+                    if (!GetFileMD5(sourcePath, md5Source) || !GetFileMD5(destPath, md5Dest)) {
+                        printf("Failed to calculate MD5 for %s or %s\n", sourcePath, destPath);
+                        closedir(dir);
+                        return FALSE;
+                    }
+                    if (memcmp(md5Source, md5Dest, 16) == 0) {
+                        continue; // Skip if identical
+                    } else {
+                        if (remove(destPath) != 0) {
+                            printf("Failed to delete existing file %s\n", destPath);
+                            closedir(dir);
+                            return FALSE;
+                        }
+                    }
+                }
+                // Copy file
+                FILE* src = fopen(sourcePath, "rb");
+                if (!src) {
+                    printf("Failed to open source file %s\n", sourcePath);
+                    closedir(dir);
+                    return FALSE;
+                }
+                FILE* dst = fopen(destPath, "wb");
+                if (!dst) {
+                    printf("Failed to open destination file %s, possibly in use\n", destPath);
+                    fclose(src);
+                    closedir(dir);
+                    return FALSE;
+                }
+                char buffer[1024];
+                size_t bytes;
+                while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+                    if (fwrite(buffer, 1, bytes, dst) != bytes) {
+                        printf("Failed to write to %s\n", destPath);
+                        fclose(src);
+                        fclose(dst);
+                        closedir(dir);
+                        return FALSE;
+                    }
+                }
                 fclose(src);
                 fclose(dst);
-                closedir(dir);
-                return FALSE;
             }
         }
-        fclose(src);
-        fclose(dst);
     }
 
     closedir(dir);
@@ -286,33 +318,18 @@ int main() {
     }
 #endif
 
-    // Step 5: Check for mods directory
-#ifdef _WIN32
-    if (!PathFileExists("mods")) {
-        printf("mods directory not found.\n");
-        goto pause_exit;
-    }
-#else
-    if (!dir_exists("mods")) {
-        printf("mods directory not found.\n");
-        goto pause_exit;
-    }
-#endif
+    // Step 5: Check for BingoTech directory (already done in step 4)
 
     printf("Verification complete.\n");
 
-    // Step 6: Go back to program directory and check mods_update
+    // Step 6: Return to program directory and check for resources
 #ifdef _WIN32
     if (!SetCurrentDirectory(programDir)) {
         printf("Failed to set working directory back to program directory.\n");
         goto pause_exit;
     }
-    if (!PathFileExists("mods_update")) {
-        printf("mods_update directory not found.\n");
-        goto pause_exit;
-    }
-    if (!SetCurrentDirectory("mods_update")) {
-        printf("Failed to set working directory to mods_update.\n");
+    if (!PathFileExists("resources")) {
+        printf("resources directory not found.\n");
         goto pause_exit;
     }
 #else
@@ -320,24 +337,20 @@ int main() {
         printf("Failed to set working directory back to program directory.\n");
         goto pause_exit;
     }
-    if (!dir_exists("mods_update")) {
-        printf("mods_update directory not found.\n");
-        goto pause_exit;
-    }
-    if (chdir("mods_update") != 0) {
-        printf("Failed to set working directory to mods_update.\n");
+    if (!dir_exists("resources")) {
+        printf("resources directory not found.\n");
         goto pause_exit;
     }
 #endif
 
-    // Step 7: Copy files from mods_update to mods
-    char modsDir[PATH_MAX];
+    // Step 7: Copy from resources to BingoTech
+    char bingoTechDir[PATH_MAX];
 #ifdef _WIN32
-    sprintf(modsDir, "%s\\.minecraft\\versions\\BingoTech\\mods", parentDir);
+    sprintf(bingoTechDir, "%s\\.minecraft\\versions\\BingoTech", parentDir);
 #else
-    sprintf(modsDir, "%s/.minecraft/versions/BingoTech/mods", parentDir);
+    sprintf(bingoTechDir, "%s/.minecraft/versions/BingoTech", parentDir);
 #endif
-    if (!CopyFilesWithMD5Check(".", modsDir)) {
+    if (!copy_directory_recursive("resources", bingoTechDir)) {
         printf("Copy operation failed.\n");
         goto pause_exit;
     }
